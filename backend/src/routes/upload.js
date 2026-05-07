@@ -8,7 +8,8 @@ import { getEmbedding } from "../rag/embed.js";
 import { addChunks, clearStore } from "../rag/store.js";
 
 const router = express.Router();
-const upload = multer({ dest: "uploads/" });
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 router.post("/", upload.single("file"), async (req, res) => {
   try {
@@ -19,7 +20,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     const docId = uuidv4();
 
     // 1. Extract text
-    const text = await extractText(req.file);
+    const text = await extractText(req.file.buffer);
 
     // 2. Chunking (hybrid)
     const { sectionChunks, semanticChunks } = chunkText(text);
