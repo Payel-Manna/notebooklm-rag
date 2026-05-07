@@ -17,9 +17,15 @@ export const initStore = async () => {
       vectors: { size: VECTOR_SIZE, distance: "Cosine" },
     });
     console.log("Qdrant collection created");
-  } else {
-    console.log("Qdrant collection already exists");
   }
+
+  // Create index on docId field for filtering
+  await client.createPayloadIndex(COLLECTION, {
+    field_name: "docId",
+    field_schema: "keyword",
+  });
+
+  console.log("Qdrant docId index ready");
 };
 
 export const addChunks = async (chunks, embeddings, docId, type) => {
