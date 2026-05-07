@@ -1,0 +1,158 @@
+# 🤖 Scaler Website Cloner — AI CLI Agent
+
+An AI-powered command-line agent that clones websites into working HTML/CSS/JS files using Claude as the reasoning engine. Built for Assignment 02.
+
+## 📋 Features
+
+- 💬 Natural language CLI interface
+- 🔁 Multi-step agent loop (reasoning → fetch → generate → verify)
+- 🌐 Fetches and analyzes real website structure
+- 🎨 Generates pixel-faithful HTML/CSS/JS clones
+- 📁 Outputs ready-to-open files in the `output/` directory
+
+## 🚀 Quick Start
+
+### 1. Prerequisites
+
+- Node.js v18 or higher
+- An [Anthropic API key](https://console.anthropic.com/)
+
+### 2. Clone & Install
+
+```bash
+git clone <your-repo-url>
+cd scaler-website-cloner-agent
+npm install   # No external dependencies needed — uses Node.js built-ins only
+```
+
+### 3. Set Your API Key
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+On Windows (CMD):
+```cmd
+set ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+On Windows (PowerShell):
+```powershell
+$env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+### 4. Run the Agent
+
+```bash
+node agent.js
+```
+
+### 5. Give an Instruction
+
+```
+❯ You: Clone the Scaler Academy website from https://www.scaler.com
+```
+
+The agent will:
+1. 💭 **Think** about what sections to build
+2. 🌐 **Fetch** the real website to analyze colors, layout, content
+3. ✍️  **Generate** HTML, CSS, and JS files
+4. ✅ **Verify** the output files exist
+5. 📂 **Tell you** where to find the files
+
+### 6. Open the Output
+
+```bash
+open output/index.html        # macOS
+xdg-open output/index.html    # Linux
+start output/index.html       # Windows
+```
+
+---
+
+## 📁 Project Structure
+
+```
+scaler-website-cloner-agent/
+├── agent.js              # Entry point — starts the CLI
+├── src/
+│   ├── agentLoop.js      # Core agent reasoning loop
+│   ├── claudeClient.js   # Anthropic API client (native https, no SDK)
+│   ├── toolExecutor.js   # Tool implementations (fetch, write, read, list)
+│   └── ui.js             # Terminal colors and formatted logging
+├── output/               # Generated website files (created automatically)
+│   └── index.html        # ← Open this in your browser!
+├── package.json
+└── README.md
+```
+
+---
+
+## 🛠️ Available Agent Tools
+
+| Tool | Description |
+|------|-------------|
+| `fetch_url` | Fetches HTML from a URL to analyze the site |
+| `write_file` | Writes a file to the `output/` directory |
+| `read_file` | Reads a file to verify its contents |
+| `list_files` | Lists all generated output files |
+
+---
+
+## 🔄 Agent Loop Architecture
+
+```
+User Input
+    │
+    ▼
+┌─────────────────────────────┐
+│   Claude Sonnet (Reasoner)  │
+│  ┌─────────────────────┐    │
+│  │ thought: "I need to │    │
+│  │  fetch the site..." │    │
+│  └─────────────────────┘    │
+│  ┌─────────────────────┐    │
+│  │ action: fetch_url   │    │
+│  │ input: {url: ...}   │    │
+│  └─────────────────────┘    │
+└────────────┬────────────────┘
+             │
+             ▼
+    ToolExecutor.execute()
+             │
+             ▼
+    Tool Result → back to Claude
+             │
+        (loop repeats)
+             │
+             ▼
+    final_answer → User sees output
+```
+
+---
+
+## 💡 Example Prompts
+
+```
+Clone the Scaler Academy website from https://www.scaler.com
+Clone https://www.scaler.com and focus on making the hero section look exact
+Clone https://www.scaler.com/topics/ page
+```
+
+---
+
+## 🔧 Troubleshooting
+
+**`ANTHROPIC_API_KEY not set`** → Run `export ANTHROPIC_API_KEY=your_key`
+
+**`Fetch failed`** → The target website may block scrapers. The agent will still generate a high-quality clone based on its knowledge.
+
+**Output looks basic** → Try: *"Regenerate the clone with more visual details and animations"*
+
+---
+
+## 📝 Notes
+
+- No npm dependencies — uses only Node.js built-in modules (`https`, `fs`, `path`, `readline`)
+- Agent loop runs up to 20 iterations per request
+- Output files are saved to `./output/` relative to where you run the command
