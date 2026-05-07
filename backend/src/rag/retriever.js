@@ -1,38 +1,23 @@
-import { vectorStore } from "./store.js";
+import { client } from "./store.js";
 
-const cosine = (a, b) => {
-  if (!a || !b) return 0;
+const COLLECTION = "documents";
 
-  let dot = 0,
-    magA = 0,
-    magB = 0;
+export const retrieveTopK = async (queryEmbedding, docId, k = 5) => {
+  const results = await client.search(COLLECTION, {
+    vector: queryEmbedding,
+    limit: k,
+    filter: {
+      must: [{ key: "docId", match: { value: docId } }],
+    },
+    with_payload: true,
+  });
 
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
+  console.log("TOP SCORES:", results.map((r) => r.score));
+  console.log("QUERY DOCID:", docId);
 
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
-  return denom === 0 ? 0 : dot / denom;
-};
-
-export const retrieveTopK = (queryEmbedding, docId, k = 5) => {
-  const pool = vectorStore.filter((x) => x.docId === docId);
-
-  console.log("TOTAL DOC CHUNKS:", pool.length);
-
-  const scored = pool.map((item) => ({
-    ...item,
-    score: cosine(queryEmbedding, item.embedding),
+  return results.map((r) => ({
+    text: r.payload.text,
+    type: r.payload.type,
+    score: r.score,
   }));
-
-  const sorted = scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, k);
-
-  console.log("TOP SCORES:", sorted.map((x) => x.score));
-   console.log("QUERY DOCID:", docId);
-  console.log("VECTOR DOC IDS:", [...new Set(vectorStore.map(v => v.docId))]);
-  return sorted;
 };

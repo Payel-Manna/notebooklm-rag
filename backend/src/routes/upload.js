@@ -34,12 +34,12 @@ router.post("/", upload.single("file"), async (req, res) => {
       semanticChunks.map((c) => getEmbedding(c))
     );
 
-    // 4. Reset store (single doc mode)
-    clearStore();
+    // 4. Clear old chunks for this doc
+    await clearStore(docId);
 
     // 5. Store with metadata
-    addChunks(sectionChunks, sectionEmbeddings, docId, "section");
-    addChunks(semanticChunks, semanticEmbeddings, docId, "semantic");
+    await addChunks(sectionChunks, sectionEmbeddings, docId, "section");
+    await addChunks(semanticChunks, semanticEmbeddings, docId, "semantic");
 
     console.log(
       "Stored chunks:",

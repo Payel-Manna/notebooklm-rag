@@ -9,11 +9,11 @@ router.post("/", async (req, res) => {
   try {
     const { question, docId } = req.body;
 
-if (!docId) {
-  return res.status(400).json({
-    error: "docId missing. Upload document first.",
-  });
-}
+    if (!docId) {
+      return res.status(400).json({
+        error: "docId missing. Upload document first.",
+      });
+    }
 
     if (!question) {
       return res.status(400).json({ error: "Question is required" });
@@ -23,22 +23,21 @@ if (!docId) {
     const queryEmbedding = await getEmbedding(question);
 
     // 2. Retrieve relevant chunks
-  const topChunks = retrieveTopK(queryEmbedding, docId);
+    const topChunks = await retrieveTopK(queryEmbedding, docId);
 
-// fallback (VERY IMPORTANT for debugging)
-if (!topChunks.length) {
-  return res.json({
-    answer:
-      "No relevant context found. Likely retrieval issue (docId mismatch or embedding similarity).",
-    sources: [],
-  });
-}
+    // fallback
+    if (!topChunks.length) {
+      return res.json({
+        answer: "No relevant context found in the document.",
+        sources: [],
+      });
+    }
 
     // 3. Build context
     const context = topChunks
       .map((c) => c.text)
       .join("\n\n")
-      .slice(0, 12000); // prevent token overflow
+      .slice(0, 12000);
 
     // 4. Generate answer
     const answer = await generateAnswer(context, question);
