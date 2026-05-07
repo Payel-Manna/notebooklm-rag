@@ -12,20 +12,21 @@ export const initStore = async () => {
   const existing = await client.getCollections();
   const exists = existing.collections.some((c) => c.name === COLLECTION);
 
-  if (!exists) {
-    await client.createCollection(COLLECTION, {
-      vectors: { size: VECTOR_SIZE, distance: "Cosine" },
-    });
-    console.log("Qdrant collection created");
+  if (exists) {
+    await client.deleteCollection(COLLECTION);
+    console.log("Deleted old collection");
   }
 
-  // Create index on docId field for filtering
+  await client.createCollection(COLLECTION, {
+    vectors: { size: VECTOR_SIZE, distance: "Cosine" },
+  });
+
   await client.createPayloadIndex(COLLECTION, {
     field_name: "docId",
     field_schema: "keyword",
   });
 
-  console.log("Qdrant docId index ready");
+  console.log("Qdrant collection and index created fresh");
 };
 
 export const addChunks = async (chunks, embeddings, docId, type) => {
