@@ -20,7 +20,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     const docId = uuidv4();
 
     // 1. Extract text
-    const text = await extractText(req.file.buffer);
+   const text = await extractText(req.file.buffer, req.file.mimetype);
 
     // 2. Chunking (hybrid)
     const { sectionChunks, semanticChunks } = chunkText(text);
