@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { extractText } from "../utils/extractText.js";
 import { chunkText } from "../rag/chunker.js";
 import { getEmbedding } from "../rag/embed.js";
-import { addChunks, clearStore } from "../rag/store.js";
+import { addChunks} from "../rag/store.js";
 
 const router = express.Router();
 const storage = multer.memoryStorage();
@@ -35,7 +35,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     );
 
     // 4. Clear old chunks for this doc
-    await clearStore(docId);
+    // await clearStore(docId);
 
     // 5. Store with metadata
     await addChunks(sectionChunks, sectionEmbeddings, docId, "section");
