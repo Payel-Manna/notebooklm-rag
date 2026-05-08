@@ -6,11 +6,11 @@ answers come strictly from your document, not from the LLM's general knowledge.
 
 ## Live Demo
 
-[Add your live link here]
+[https://notebooklm-rag-phi.vercel.app/]
 
 ## GitHub Repository
 
-[Add your repo link here]
+[https://github.com/Payel-Manna/notebooklm-rag]
 
 ---
 
