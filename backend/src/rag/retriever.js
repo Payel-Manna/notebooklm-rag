@@ -14,7 +14,7 @@ export const retrieveTopK = async (queryEmbedding, docId, k = 5) => {
 
   console.log("TOP SCORES:", results.map((r) => r.score));
   console.log("QUERY DOCID:", docId);
-
+  console.log("SEARCHING DOCID:", docId);
   return results.map((r) => ({
     text: r.payload.text,
     type: r.payload.type,

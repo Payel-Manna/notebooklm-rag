@@ -7,7 +7,7 @@ const VECTOR_SIZE = 384;
 export const client = new QdrantClient({
   url: process.env.QDRANT_URL,
   apiKey: process.env.QDRANT_API_KEY,
-  timeout: 60000,
+  timeout: 120000,
 });
 
 export const initStore = async () => {
@@ -52,7 +52,18 @@ export const addChunks = async (
     },
   }));
 
-  await client.upsert(COLLECTION, { points });
+ const BATCH_SIZE = 20;
+
+for (let i = 0; i < points.length; i += BATCH_SIZE) {
+  const batch = points.slice(i, i + BATCH_SIZE);
+
+  await client.upsert(COLLECTION, {
+    points: batch,
+  });
+
+  console.log(`Uploaded batch ${i / BATCH_SIZE + 1}`);
+}
 
   console.log(`Stored ${points.length} chunks in Qdrant`);
+  console.log("UPSERT DOCID:", docId);
 };
