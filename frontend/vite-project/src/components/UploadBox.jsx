@@ -4,17 +4,20 @@ import { api } from "../api";
 export default function UploadBox({ setDocId }) {
   const [file, setFile] = useState(null);
 
- const upload = async () => {
+const upload = async () => {
   if (!file) return;
 
-  const form = new FormData();
-  form.append("file", file);
+  try {
+    const form = new FormData();
+    form.append("file", file);
 
-  const res = await api.post("/upload", form);
-
-  setDocId(res.data.docId); // 🔥 THIS WAS MISSING
-
-  alert("Uploaded ✓");
+    const res = await api.post("/upload", form);
+    setDocId(res.data.docId);
+    alert("Uploaded ✓");
+  } catch (err) {
+    console.error("Upload failed:", err);
+    alert("Upload failed: " + (err.response?.data?.error || err.message));
+  }
 };
 
   return (

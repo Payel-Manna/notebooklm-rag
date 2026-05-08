@@ -1,5 +1,3 @@
-// rag/embed.js
-
 import { pipeline } from "@xenova/transformers";
 
 let extractor;
@@ -9,9 +7,6 @@ export const initEmbedding = async () => {
 };
 
 export const getEmbedding = async (text) => {
-  const output = await extractor(text);
-
-  if (!output || !output.data) return Array(384).fill(0);
-
+  const output = await extractor(text, { pooling: "mean", normalize: true });
   return Array.from(output.data);
 };
