@@ -39,9 +39,7 @@ import { useState, useEffect } from 'react';
 import UploadBox from './components/UploadBox';
 import ChatBox from './components/ChatBox';
 import Sources from './components/Sources';
-
-const API = import.meta.env.VITE_API_URL || 'https://notebooklm-rag.onrender.com';
-
+const API = 'https://notebooklm-rag.onrender.com';
 export default function App() {
   const [docId, setDocId] = useState(null);
   const [docName, setDocName] = useState('');
