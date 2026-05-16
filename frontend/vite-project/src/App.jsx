@@ -40,7 +40,7 @@ import UploadBox from './components/UploadBox';
 import ChatBox from './components/ChatBox';
 import Sources from './components/Sources';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL || 'https://notebooklm-rag.onrender.com';
 
 export default function App() {
   const [docId, setDocId] = useState(null);
