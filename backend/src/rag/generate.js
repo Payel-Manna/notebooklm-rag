@@ -41,19 +41,18 @@
 
 import Groq from 'groq-sdk';
 import { getEmbedding } from './embed.js';
-import { vectorStore } from './store.js';
-import { retrieve } from './retriever.js';
+import { retrieve, retrieveByEmbedding } from './retriever.js';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// ── 1. Query Rewriting (SLM-style, lightweight prompt) ───────────────────────
+// ── 1. Query Rewriting ────────────────────────────────────────────────────────
 export async function rewriteQuery(originalQuestion) {
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
     messages: [{
       role: 'user',
-      content: `Rewrite the following user question into a clearer, more specific search query 
-that would help retrieve relevant passages from a document. 
+      content: `Rewrite the following user question into a clearer, more specific search query
+that would help retrieve relevant passages from a document.
 Return ONLY the rewritten query, nothing else.
 
 Original question: "${originalQuestion}"`,
@@ -70,7 +69,7 @@ export async function decomposeQuery(question) {
     model: 'llama-3.1-8b-instant',
     messages: [{
       role: 'user',
-      content: `Break the following complex question into 2-3 simpler sub-questions 
+      content: `Break the following complex question into 2-3 simpler sub-questions
 that together would answer it. Return ONLY a JSON array of strings.
 Example: ["What is X?", "How does Y work?", "Why does Z happen?"]
 
@@ -82,14 +81,14 @@ Question: "${question}"`,
 
   try {
     const raw = res.choices[0].message.content.trim();
-    const parsed = JSON.parse(raw.match(/\[[\s\S]*\]/)[0]);
+    const parsed = JSON.parse(raw.match(/\[[\s\S]*?\]/)[0]);
     return Array.isArray(parsed) ? parsed : [question];
   } catch {
     return [question];
   }
 }
 
-// ── 3. HyDE — Hypothetical Document Embedding ────────────────────────────────
+// ── 3. HyDE ───────────────────────────────────────────────────────────────────
 export async function generateHypotheticalAnswer(question) {
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
@@ -106,7 +105,7 @@ export async function generateHypotheticalAnswer(question) {
   return res.choices[0].message.content.trim();
 }
 
-// ── 4. LLM Judge — relevance & hallucination check ───────────────────────────
+// ── 4. LLM Judge ─────────────────────────────────────────────────────────────
 async function judgeAnswer(question, context, answer) {
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
@@ -130,43 +129,32 @@ Reply ONLY with JSON: {"faithfulness": N, "relevance": N, "issues": "brief note 
 
   try {
     const raw = res.choices[0].message.content.trim();
-    return JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);
+    return JSON.parse(raw.match(/\{[\s\S]*?\}/)[0]);
   } catch {
     return { faithfulness: 5, relevance: 5, issues: null };
   }
 }
 
-// ── 5. Main generate function ─────────────────────────────────────────────────
+// ── 5. Main generate ──────────────────────────────────────────────────────────
 export async function generateAnswer(question, docId) {
-  // Step A: Rewrite query
+  // A: Rewrite query
   const rewrittenQuery = await rewriteQuery(question);
 
-  // Step B: Sub-query decomposition
+  // B: Sub-query decomposition
   const subQueries = await decomposeQuery(rewrittenQuery);
 
-  // Step C: HyDE — generate hypothetical answer and use its embedding too
+  // C: HyDE — generate hypothetical answer, embed it, retrieve with that vector
   const hypotheticalDoc = await generateHypotheticalAnswer(rewrittenQuery);
   const hydeEmbedding = await getEmbedding(hypotheticalDoc);
 
-  // Step D: Retrieve for each sub-query + HyDE embedding
-  const allRetrieved = [];
-  for (const q of subQueries) {
-    const chunks = await retrieve(q, docId, 5);
-    allRetrieved.push(...chunks);
-  }
+  // D: Retrieve for each sub-query + HyDE in parallel
+  const [hydeChunks, ...subQueryChunks] = await Promise.all([
+    retrieveByEmbedding(hydeEmbedding, docId, 5),
+    ...subQueries.map(q => retrieve(q, docId, 5)),
+  ]);
 
-  // Also retrieve using HyDE embedding directly
-  const allChunks = vectorStore.getByDocId(docId);
-  const hydeChunks = allChunks
-    .map(c => ({
-      ...c,
-      score: cosineSim(hydeEmbedding, c.embedding),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-  allRetrieved.push(...hydeChunks);
-
-  // Deduplicate by text
+  // E: Merge + deduplicate by text prefix
+  const allRetrieved = [hydeChunks, ...subQueryChunks].flat();
   const seen = new Set();
   const uniqueChunks = allRetrieved.filter(c => {
     const key = c.text.slice(0, 80);
@@ -175,28 +163,26 @@ export async function generateAnswer(question, docId) {
     return true;
   });
 
-  // Top 6 chunks for context (token budget management)
-  const topChunks = uniqueChunks
-    .sort((a, b) => (b.rerankScore ?? b.score ?? 0) - (a.rerankScore ?? a.score ?? 0))
-    .slice(0, 6);
-
-  // Step E: Build context respecting token budget (~2000 tokens ≈ 8000 chars)
+  // F: Sort by best score, respect token budget (~6000 chars)
   const TOKEN_BUDGET_CHARS = 6000;
+  const sorted = uniqueChunks
+    .sort((a, b) => (b.rerankScore ?? b.score ?? 0) - (a.rerankScore ?? a.score ?? 0));
+
   let contextText = '';
   const usedChunks = [];
-  for (const chunk of topChunks) {
+  for (const chunk of sorted) {
     if (contextText.length + chunk.text.length > TOKEN_BUDGET_CHARS) break;
     contextText += chunk.text + '\n\n';
     usedChunks.push(chunk);
   }
 
-  // Step F: Generate answer
+  // G: Generate answer
   const res = await groq.chat.completions.create({
     model: 'llama-3.1-8b-instant',
     messages: [
       {
         role: 'system',
-        content: `You are a precise document assistant. Answer questions STRICTLY based on 
+        content: `You are a precise document assistant. Answer questions STRICTLY based on
 the provided context. If the context doesn't contain enough information, say so clearly.
 Do not use any external knowledge. Be concise and cite specific parts of the context.`,
       },
@@ -211,10 +197,10 @@ Do not use any external knowledge. Be concise and cite specific parts of the con
 
   const answer = res.choices[0].message.content.trim();
 
-  // Step G: LLM Judge
+  // H: LLM Judge
   const judgment = await judgeAnswer(question, contextText, answer);
 
-  // Step H: Corrective RAG — if faithfulness is low, retry with stricter prompt
+  // I: Corrective RAG — regenerate if faithfulness is low
   let finalAnswer = answer;
   if (judgment.faithfulness < 5) {
     const correction = await groq.chat.completions.create({
@@ -224,8 +210,8 @@ Do not use any external knowledge. Be concise and cite specific parts of the con
           role: 'system',
           content: `The previous answer had low faithfulness (score: ${judgment.faithfulness}/10).
 Issue: ${judgment.issues}
-Rewrite the answer using ONLY information explicitly stated in the context. 
-If the context is insufficient, say "The document does not contain enough information to answer this question."`,
+Rewrite using ONLY information explicitly stated in the context.
+If insufficient, say "The document does not contain enough information to answer this."`,
         },
         {
           role: 'user',
@@ -253,12 +239,4 @@ If the context is insufficient, say "The document does not contain enough inform
       chunksUsed: usedChunks.length,
     },
   };
-}
-
-function cosineSim(a, b) {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i]; na += a[i]*a[i]; nb += b[i]*b[i];
-  }
-  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
 }
