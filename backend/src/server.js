@@ -16,6 +16,12 @@ app.use(express.json());
 await initEmbedding();
 await initStore();
 
+
+// ✅ Health check endpoint — used by frontend to wake up Render instance
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 app.use("/upload", uploadRoute);
 app.use("/query", queryRoute);
 app.get("/", (req, res) => {
