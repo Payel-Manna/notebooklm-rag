@@ -32,7 +32,7 @@ export const CHUNK_CONFIGS = {
 };
 
 // ✅ Keep the same function signature upload.js already uses
-export function chunkText(text, config = 'medium') {
+export function chunkText(text, config = 'large') {
   const cfg = CHUNK_CONFIGS[config];
   const sectionChunks = sectionChunk(text);
   const semanticChunks = slidingWindowChunk(text, cfg);
